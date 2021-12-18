@@ -32,7 +32,6 @@ apply plugin: 'java'
 apply plugin: 'idea'
 apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.yaml-rest-test'
-apply plugin: 'opensearch.rest-test'
 
 def pluginName = 'opensearch-geospatial'
 def pluginDescription = 'OpenSearch Geospatial plugin to host geospatial features'
@@ -94,9 +93,6 @@ repositories {
 test {
     include '**/*Tests.class'
 }
-
-def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
-opensearch_tmp_dir.mkdirs()
 
 task integTest(type: RestIntegTestTask) {
     description = "Run tests against a cluster"
