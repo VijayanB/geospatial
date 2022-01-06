@@ -27,6 +27,7 @@ opensearchplugin {
     classname "${projectPath}.${pathToPlugin}.${pluginClassName}"
     licenseFile rootProject.file('LICENSE')
     noticeFile rootProject.file('NOTICE')
+    extendedPlugins = ['lang-painless']
 }
 
 // This requires an additional Jar not published as part of build-tools
@@ -68,7 +69,17 @@ test {
 
 dependencies {
     runtimeClasspath "org.apache.logging.log4j:log4j-core:${versions.log4j}"
+    compile "org.opensearch:opensearch:${opensearch_version}"
+    compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
+    compile group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
+    compile group: 'com.google.guava', name: 'guava', version:'29.0-jre'
+    compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
 }
+
+licenseHeaders.enabled = true
+dependencyLicenses.enabled = false
+thirdPartyAudit.enabled = false
+loggerUsageCheck.enabled = false
 
 task integTest(type: RestIntegTestTask) {
     description = "Run tests against a cluster"
@@ -85,7 +96,7 @@ integTest {
 }
 
 testClusters.integTest {
-    testDistribution = "INTEG_TEST"
+    testDistribution = "ARCHIVE"
 
     // This installs our plugin into the testClusters
     plugin(project.tasks.bundlePlugin.archiveFile)
