@@ -54,6 +54,17 @@ buildscript {
     }
 }
 
+ext {
+    isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+}
+
+allprojects {
+    version = "${opensearch_version}" - "-SNAPSHOT" + ".0"
+    if (isSnapshot) {
+        version += "-SNAPSHOT"
+    }
+}
+
 repositories {
     mavenLocal()
     maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
@@ -64,11 +75,24 @@ repositories {
 
 test {
     include '**/*Tests.class'
+    systemProperty 'tests.security.manager', 'false'
 }
 
+
+//****************************************************************************/
+// Dependencies
+//****************************************************************************/
 dependencies {
     runtimeClasspath "org.apache.logging.log4j:log4j-core:${versions.log4j}"
 }
+
+licenseHeaders.enabled = true
+dependencyLicenses.enabled = false
+thirdPartyAudit.enabled = false
+loggerUsageCheck.enabled = false
+
+def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
+opensearch_tmp_dir.mkdirs()
 
 task integTest(type: RestIntegTestTask) {
     description = "Run tests against a cluster"
@@ -78,6 +102,8 @@ task integTest(type: RestIntegTestTask) {
 tasks.named("check").configure { dependsOn(integTest) }
 
 integTest {
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
     // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
     if (System.getProperty("test.debug") != null) {
         jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
