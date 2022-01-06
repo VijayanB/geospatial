@@ -1,6 +1,6 @@
 import org.opensearch.gradle.test.RestIntegTestTask
 
-apply plugin: 'java'
+apply plugin: 'java-library'
 apply plugin: 'idea'
 apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.yaml-rest-test'
@@ -20,6 +20,12 @@ tasks.register("preparePluginPathDirs") {
         mkdir "src/yamlRestTest/java/org/opensearch/$newPath"
     }
 }
+ext {
+    isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+    projectSubstitutions = [:]
+    licenseFile = rootProject.file('LICENSE.TXT')
+    noticeFile = rootProject.file('NOTICE.TXT')
+}
 
 opensearchplugin {
     name pluginName
@@ -27,6 +33,7 @@ opensearchplugin {
     classname "${projectPath}.${pathToPlugin}.${pluginClassName}"
     licenseFile rootProject.file('LICENSE')
     noticeFile rootProject.file('NOTICE')
+    extendedPlugins = ['lang-painless']
 }
 
 // This requires an additional Jar not published as part of build-tools
@@ -66,8 +73,24 @@ test {
     include '**/*Tests.class'
 }
 
+allprojects {
+    group = 'org.opensearch'
+    version = "${opensearch_version}" - "-SNAPSHOT" + ".0"
+    if (isSnapshot) {
+        version += "-SNAPSHOT"
+    }
+    plugins.withId('java') {
+        sourceCompatibility = targetCompatibility = "1.8"
+    }
+}
+
 dependencies {
     runtimeClasspath "org.apache.logging.log4j:log4j-core:${versions.log4j}"
+    compile "org.opensearch:opensearch:${opensearch_version}"
+    compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
+    compile group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
+    compile group: 'com.google.guava', name: 'guava', version:'29.0-jre'
+    compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
 }
 
 task integTest(type: RestIntegTestTask) {
@@ -85,7 +108,7 @@ integTest {
 }
 
 testClusters.integTest {
-    testDistribution = "INTEG_TEST"
+    testDistribution = "ARCHIVE"
 
     // This installs our plugin into the testClusters
     plugin(project.tasks.bundlePlugin.archiveFile)
