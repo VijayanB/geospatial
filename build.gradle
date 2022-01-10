@@ -24,7 +24,6 @@ opensearchplugin {
     name pluginName
     description pluginDescription
     classname "${projectPath}.${pathToPlugin}.${pluginClassName}"
-    extendedPlugins = ['lang-painless']
     licenseFile rootProject.file('LICENSE')
     noticeFile rootProject.file('NOTICE')
 }
@@ -84,12 +83,6 @@ test {
 //****************************************************************************/
 dependencies {
     runtimeClasspath "org.apache.logging.log4j:log4j-core:${versions.log4j}"
-    compile "org.opensearch:opensearch:${opensearch_version}"
-    compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
-    compile group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
-    compile group: 'com.google.guava', name: 'guava', version:'29.0-jre'
-    compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
-    testImplementation "org.opensearch.test:framework:${opensearch_version}"
 }
 
 licenseHeaders.enabled = true
