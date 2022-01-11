@@ -11,26 +11,63 @@
 
 package org.opensearch.geospatial.processor;
 
+
+import org.opensearch.geospatial.geojson.GeoJSONFactory;
 import org.opensearch.ingest.IngestDocument;
 import org.opensearch.ingest.RandomDocumentPicks;
 import org.opensearch.test.OpenSearchTestCase;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class GeoJSONFeatureProcessorTests extends OpenSearchTestCase {
 
-    public void testGeoJSONProcessorSuccess() throws Exception {
-        Map<String, Object> document = new HashMap<>();
-        document.put("repository", "geospatial");
+    private Map<String, Object> buildGeoJSON(String type) {
+        Map<String,Object> geoJSON = new HashMap<>();
+        geoJSON.put("type", type);
+
+        Map<String,Object> properties = new HashMap<>();
+        properties.put("name", "Dinagat Islands");
+        geoJSON.put("properties", properties);
+
+        Map<String,Object> geometry = new HashMap<>();
+        geometry.put("type", "Point");
+        geometry.put("coordinates", "[125.6, 10.1]");
+        geoJSON.put("geometry", geometry);
+
+        return geoJSON;
+
+    }
+    public void testGeoJSONProcessorSuccess(){
+        Map<String, Object> document = buildGeoJSON("Feature");
         IngestDocument ingestDocument = RandomDocumentPicks.randomIngestDocument(random(), document);
-        GeoJSONFeatureProcessor processor = new GeoJSONFeatureProcessor("sample", "description");
+        GeoJSONFeatureProcessor processor = new GeoJSONFeatureProcessor("sample", "description", "location");
         processor.execute(ingestDocument);
-        Map<String, Object> data = ingestDocument.getSourceAndMetadata();
-        assertTrue(data.get("type") instanceof List);
-        @SuppressWarnings("unchecked")
-        List<String> values = (List<String>) data.get("type");
-        assertTrue(values.contains("feature"));
+        Map<String,Object> location = (Map<String, Object>) ingestDocument.getFieldValue("location", Object.class);
+        assertNotNull(location);
+        assertEquals(document.get(GeoJSONFactory.GEOMETRY),location);
+        assertEquals("Dinagat Islands",ingestDocument.getSourceAndMetadata().get("name"));
+        assertNull(ingestDocument.getSourceAndMetadata().get(GeoJSONFactory.GEOMETRY));
+        assertNull(ingestDocument.getSourceAndMetadata().get(GeoJSONFactory.TYPE));
+        assertNull(ingestDocument.getSourceAndMetadata().get(GeoJSONFactory.PROPERTIES));
+    }
+
+    public void testGeoJSONProcessorUnSupportedType(){
+        Map<String, Object> document = buildGeoJSON("FeatureCollection");
+        IngestDocument ingestDocument = RandomDocumentPicks.randomIngestDocument(random(), document);
+        GeoJSONFeatureProcessor processor = new GeoJSONFeatureProcessor("sample", "description", "location");
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, ()-> processor.execute(ingestDocument));
+        assertTrue(exception.getMessage().contains("Only type Feature is supported"));
+    }
+
+    public void testGeoJSONProcessorTypeNotFound(){
+        Map<String, Object> document = buildGeoJSON("Feature");
+        document.remove("type");
+        IngestDocument ingestDocument = RandomDocumentPicks.randomIngestDocument(random(), document);
+        GeoJSONFeatureProcessor processor = new GeoJSONFeatureProcessor("sample", "description", "location");
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, ()-> processor.execute(ingestDocument));
+        assertTrue(exception.getMessage().contains("type cannot be null"));
     }
 }

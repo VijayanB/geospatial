@@ -1,0 +1,47 @@
+---
+"Test geojson processor with defaults":
+  - do:
+      ingest.put_pipeline:
+        id: "my_pipeline"
+        body:  >
+          {
+            "description": "_description",
+            "processors": [
+              {
+                "geojson" : {
+                  "field" : "location"
+                }
+              }
+            ]
+          }
+  - match: { acknowledged: true }
+
+  - do:
+      indices.create:
+        index: test_index
+        body:
+          mappings:
+            properties:
+              location:
+                type: geo_shpae
+
+  - do:
+      index:
+        index: test_index
+        id: 1
+        pipeline: "my_pipeline"
+        body:
+          type: "Feature"
+          geometry:
+            type: "Point"
+            coordinates: [125.6, 10.1]
+          properties:
+            name: "Dinagat Islands"
+
+  - do:
+      get:
+        index: test_index
+        id: 1
+  - match: { _source.location.name: "Dinagat Islands"}
+  - match: { _source.location.geometry.type: "Point" }
+  - match: { _source.location.geometry.coordinates: [125.6, 10.1] }
