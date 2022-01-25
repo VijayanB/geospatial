@@ -5,33 +5,48 @@
 
 package org.opensearch.geospatial.action.geojson.upload;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import static org.opensearch.ingest.RandomDocumentPicks.randomString;
 
-import org.opensearch.common.bytes.BytesArray;
+import java.io.IOException;
+import java.util.Locale;
+
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
+import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.test.OpenSearchTestCase;
 
 public class UploadGeoJSONRequestTests extends OpenSearchTestCase {
 
-    private String getRequestBody() {
-        return "{}";
+    private String genereateIndexName() {
+        return randomString(random()).toLowerCase(Locale.getDefault());
     }
 
     public void testStreams() throws IOException {
-        String requestBody = getRequestBody();
-        UploadGeoJSONRequest request = new UploadGeoJSONRequest(new BytesArray(requestBody.getBytes(StandardCharsets.UTF_8)));
+        String indexName = genereateIndexName();
+        UploadGeoJSONRequest request = new UploadGeoJSONRequest(indexName);
         BytesStreamOutput output = new BytesStreamOutput();
         request.writeTo(output);
         StreamInput in = StreamInput.wrap(output.bytes().toBytesRef().bytes);
 
         UploadGeoJSONRequest serialized = new UploadGeoJSONRequest(in);
-        assertEquals(requestBody, serialized.getSource().utf8ToString());
+        assertEquals(indexName, serialized.getIndexName());
     }
 
-    public void testRequestValidation() {
-        UploadGeoJSONRequest request = new UploadGeoJSONRequest(new BytesArray(getRequestBody().getBytes(StandardCharsets.UTF_8)));
-        assertNull(request.validate());
+    public void testRequestValidationSucceed() {
+        UploadGeoJSONRequest request = new UploadGeoJSONRequest(genereateIndexName());
+        ActionRequestValidationException validate = request.validate();
+        assertNotNull(validate);
+    }
+
+    public void testRequestValidationInvalidIndexName() {
+        UploadGeoJSONRequest request = new UploadGeoJSONRequest("");
+        ActionRequestValidationException validate = request.validate();
+        MatcherAssert.assertThat(
+            "error message is not valid",
+            validate.validationErrors(),
+            Matchers.contains("index name cannot be empty")
+        );
     }
 }

@@ -5,40 +5,39 @@
 
 package org.opensearch.geospatial.action.geojson.upload;
 
+import static org.opensearch.action.ValidateActions.addValidationError;
+
 import java.io.IOException;
 import java.util.Objects;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
 
 public class UploadGeoJSONRequest extends ActionRequest {
 
-    private BytesReference source;
+    private String indexName;
 
-    public UploadGeoJSONRequest(BytesReference source) {
-        this.source = Objects.requireNonNull(source);
+    public UploadGeoJSONRequest(String indexName) {
+        this.indexName = Objects.requireNonNull(indexName);
     }
 
     public UploadGeoJSONRequest(StreamInput in) throws IOException {
         super(in);
-        this.source = in.readBytesReference();
+        this.indexName = in.readString();
     }
 
-    public BytesReference getSource() {
-        return source;
+    public String getIndexName() {
+        return indexName;
     }
 
     @Override
     public ActionRequestValidationException validate() {
-        return null;
-    }
-
-    @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        super.writeTo(out);
-        out.writeBytesReference(source);
+        ActionRequestValidationException validationException = new ActionRequestValidationException();
+        if (!Strings.hasText(indexName)) {
+            validationException = addValidationError("index name cannot be empty", validationException);
+        }
+        return validationException != null ? validationException: null;
     }
 }
