@@ -6,9 +6,8 @@
 package org.opensearch.geospatial.processor;
 
 import static org.opensearch.geospatial.GeospatialObjectBuilder.GEOMETRY_TYPE_KEY;
-import static org.opensearch.geospatial.GeospatialObjectBuilder.buildGeoJSONFeature;
 import static org.opensearch.geospatial.GeospatialObjectBuilder.buildProperties;
-import static org.opensearch.geospatial.GeospatialObjectBuilder.getRandomGeometryLineString;
+import static org.opensearch.geospatial.GeospatialObjectBuilder.randomGeoJSONFeature;
 import static org.opensearch.ingest.RandomDocumentPicks.randomString;
 
 import java.io.IOException;
@@ -65,7 +64,7 @@ public class FeatureProcessorIT extends GeospatialRestTestCase {
         properties.put(randomString(random()), randomString(random()));
         properties.put(randomString(random()), randomString(random()));
 
-        JSONObject feature = buildGeoJSONFeature(getRandomGeometryLineString(), buildProperties(properties));
+        JSONObject feature = randomGeoJSONFeature(buildProperties(properties));
         String requestBody = feature.toString();
         Map<String, String> params = new HashMap<>();
         params.put("pipeline", pipelineName);
@@ -81,7 +80,7 @@ public class FeatureProcessorIT extends GeospatialRestTestCase {
         }
 
         Map<String, Object> geoShapeFieldValue = (Map<String, Object>) document.get(geoShapeField);
-        assertEquals(geoShapeFieldValue.get(GEOMETRY_TYPE_KEY), GeoShapeType.LINESTRING.shapeName());
+        assertNotNull(geoShapeFieldValue.get(GEOMETRY_TYPE_KEY));
 
         deletePipeline(pipelineName);
         deleteIndex(indexName);

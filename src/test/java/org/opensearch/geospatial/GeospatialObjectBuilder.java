@@ -11,7 +11,9 @@ import java.util.Random;
 import org.json.JSONObject;
 import org.opensearch.common.Randomness;
 import org.opensearch.common.geo.GeoShapeType;
+import org.opensearch.geo.GeometryTestUtils;
 import org.opensearch.geospatial.geojson.Feature;
+import org.opensearch.test.OpenSearchTestCase;
 
 /**
  * GeospatialObjectBuilder contains utility methods to generate geospatial objects
@@ -32,13 +34,13 @@ public class GeospatialObjectBuilder {
         return geometry;
     }
 
-    public static JSONObject getRandomGeometryPoint() {
+    public static JSONObject randomGeometryPoint() {
         Random random = Randomness.get();
         double[] point = new double[] { random.nextDouble(), random.nextDouble() };
         return buildGeometry(GeoShapeType.POINT.shapeName(), point);
     }
 
-    public static JSONObject getRandomGeometryLineString() {
+    public static JSONObject randomGeometryLineString() {
         int randomTotalPoints = randomPositiveInt(MAX_POINTS);
         int randomPointsDimension = randomPositiveInt(MAX_DIMENSION);
         double[][] lineString = new double[randomTotalPoints][randomPointsDimension];
@@ -49,8 +51,7 @@ public class GeospatialObjectBuilder {
     }
 
     private static double[] getRandomPoint() {
-        Random random = Randomness.get();
-        return new double[] { random.nextDouble(), random.nextDouble() };
+        return new double[] { GeometryTestUtils.randomLat(), GeometryTestUtils.randomLon() };
     }
 
     public static JSONObject buildGeoJSONFeature(JSONObject geometry, JSONObject properties) {
@@ -71,5 +72,16 @@ public class GeospatialObjectBuilder {
 
     public static int randomPositiveInt(int bound) {
         return Randomness.get().ints(MIN_POSITIVE_INTEGER_VALUE, bound).findFirst().getAsInt();
+    }
+
+    public static JSONObject randomGeoJSONFeature(final JSONObject properties) {
+        return buildGeoJSONFeature(randomGeoJSONGeometry(), properties);
+    }
+
+    public static JSONObject randomGeoJSONGeometry() {
+        return OpenSearchTestCase.randomFrom(
+            GeospatialObjectBuilder.randomGeometryLineString(),
+            GeospatialObjectBuilder.randomGeometryPoint()
+        );
     }
 }
