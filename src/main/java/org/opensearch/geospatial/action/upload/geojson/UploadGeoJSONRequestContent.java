@@ -21,16 +21,19 @@ public final class UploadGeoJSONRequestContent {
     public static final ParseField FIELD_INDEX = new ParseField("index", new String[0]);
     public static final ParseField FIELD_GEOSPATIAL = new ParseField("field", new String[0]);
     public static final ParseField FIELD_GEOSPATIAL_TYPE = new ParseField("type", new String[0]);
+    public static final ParseField FIELD_FEATURE_ID = new ParseField("feature_id", new String[0]);
     public static final ParseField FIELD_DATA = new ParseField("data", new String[0]);
     private final String indexName;
     private final String fieldName;
     private final String fieldType;
+    private final String featureId;
     private final Object data;
 
-    private UploadGeoJSONRequestContent(String indexName, String fieldName, String fieldType, Object data) {
+    private UploadGeoJSONRequestContent(String indexName, String fieldName, String fieldType, String featureId, Object data) {
         this.indexName = indexName;
         this.fieldName = fieldName;
         this.fieldType = fieldType;
+        this.featureId = featureId; // can be null
         this.data = data;
     }
 
@@ -55,12 +58,13 @@ public final class UploadGeoJSONRequestContent {
         if (!Strings.hasText(fieldName)) {
             throw new IllegalArgumentException("field [ " + FIELD_GEOSPATIAL_TYPE.getPreferredName() + " ] cannot be empty");
         }
+        String idFieldName = extractValueAsString(input, FIELD_FEATURE_ID.getPreferredName());
 
         Object geoJSONData = Objects.requireNonNull(
             input.get(FIELD_DATA.getPreferredName()),
             "field [ " + FIELD_DATA.getPreferredName() + " ] cannot be empty"
         );
-        return new UploadGeoJSONRequestContent(index, fieldName, fieldType, geoJSONData);
+        return new UploadGeoJSONRequestContent(index, fieldName, fieldType, idFieldName, geoJSONData);
     }
 
     public final String getIndexName() {
@@ -77,5 +81,9 @@ public final class UploadGeoJSONRequestContent {
 
     public String getFieldType() {
         return fieldType;
+    }
+
+    public String getFeatureId() {
+        return featureId;
     }
 }
