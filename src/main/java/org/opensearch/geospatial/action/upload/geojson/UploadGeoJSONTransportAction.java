@@ -17,6 +17,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.master.AcknowledgedResponse;
+import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.geospatial.GeospatialParser;
 import org.opensearch.tasks.Task;
@@ -27,24 +28,21 @@ import org.opensearch.transport.TransportService;
  */
 public class UploadGeoJSONTransportAction extends HandledTransportAction<UploadGeoJSONRequest, AcknowledgedResponse> {
 
+    private final Client client;
+
     @Inject
-    public UploadGeoJSONTransportAction(TransportService transportService, ActionFilters actionFilters) {
+    public UploadGeoJSONTransportAction(TransportService transportService, ActionFilters actionFilters, Client client) {
         super(UploadGeoJSONAction.NAME, transportService, actionFilters, UploadGeoJSONRequest::new);
+        this.client = client;
     }
 
     @Override
     protected void doExecute(Task task, UploadGeoJSONRequest request, ActionListener<AcknowledgedResponse> actionListener) {
         Map<String, Object> contentAsMap = GeospatialParser.convertToMap(request.getContent());
+        UploadGeoJSONRequestContent content = UploadGeoJSONRequestContent.create(contentAsMap);
+        Uploader uploader = new Uploader(client, content, actionListener);
         try {
-            UploadGeoJSONRequestContent content = UploadGeoJSONRequestContent.create(contentAsMap);
-            // TODO https://github.com/opensearch-project/geospatial/issues/28 (Add logic to execute import action)
-            // 1. get index name and geospatial field from content
-            // 2. create index with mapping
-            // 3. Parse Data to get GeoJSON Object
-            // 4. Get features from GeoJSON
-            // 5. create Pipeline with GeoJSONFeatureProcessor
-            // 6. Create BulkIndex Request with features as documents.
-            actionListener.onResponse(new AcknowledgedResponse(true));
+            uploader.upload();
         } catch (Exception e) {
             actionListener.onFailure(e);
         }
