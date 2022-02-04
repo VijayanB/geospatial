@@ -55,7 +55,7 @@ public final class UploadGeoJSONRequestContent {
             throw new IllegalArgumentException("field [ " + FIELD_GEOSPATIAL.getPreferredName() + " ] cannot be empty");
         }
         String fieldType = extractValueAsString(input, FIELD_GEOSPATIAL_TYPE.getPreferredName());
-        if (!Strings.hasText(fieldName)) {
+        if (!Strings.hasText(fieldType)) {
             throw new IllegalArgumentException("field [ " + FIELD_GEOSPATIAL_TYPE.getPreferredName() + " ] cannot be empty");
         }
         String idFieldName = extractValueAsString(input, FIELD_FEATURE_ID.getPreferredName());
