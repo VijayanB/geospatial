@@ -25,8 +25,10 @@ import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkRequestBuilder;
+import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequestBuilder;
 import org.opensearch.action.ingest.DeletePipelineRequest;
+import org.opensearch.action.ingest.GetPipelineRequest;
 import org.opensearch.action.ingest.PutPipelineRequest;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
@@ -83,30 +85,18 @@ public class Uploader {
      * 2. Build Pipeline with {@link FeatureProcessor} to enrich data
      * 3. Convert all Feature in {@link UploadGeoJSONRequestContent#getData()} to {@link IndexRequestBuilder#setSource(Object...)}
      * 4. Use {@link BulkRequestBuilder} to add all {@link IndexRequestBuilder} and execute
+     * 5. Delete previously created pipeline
      * @throws IOException if any of steps to create
      */
     public void upload() throws IOException {
 
         if (shouldCreateIndex) {
-            StringBuilder message = new StringBuilder("Created index: ").append(content.getIndexName());
-            createPipeline(listenOnlyOnFailure(message));
-            return;
+            createIndex();
         }
-
-        // Parse content, get features, build Bulk Index Request and execute
-        ActionListener<AcknowledgedResponse> buildBulkRequestWithGeoJSON = wrapBuildIndexGeoJSON();
-        try {
-            if (!shouldCreateIndex) {
-                createPipeline(buildBulkRequestWithGeoJSON);
-                return;
-            }
-
-            // Create Pipeline with a processor of type "geojson-feature"
-            ActionListener<CreateIndexResponse> createPipelineActionListener = wrapCreatePipeline(buildBulkRequestWithGeoJSON);
-
-            // create index
-            createIndex(createPipelineActionListener);
-        } finally {
+        createPipeline();
+        try{
+            indexGeoJSONAsDocument();
+        } finally { // pipeline is created by uploader in the previous step, so delete it at all cost.
             deletePipeline();
         }
     }
@@ -149,23 +139,23 @@ public class Uploader {
             .endObject();
     }
 
-    private void createPipeline(ActionListener<AcknowledgedResponse> onResponseListener) throws IOException {
+    private void createPipeline() throws IOException {
         XContentBuilder pipelineRequestXContent = buildPipelineBodyWithFeatureProcessor();
         BytesReference pipelineRequestBodyBytes = BytesReference.bytes(pipelineRequestXContent);
         PutPipelineRequest pipelineRequest = new PutPipelineRequest(pipelineId, pipelineRequestBodyBytes, XContentType.JSON);
-        client.admin().cluster().putPipeline(pipelineRequest, onResponseListener);
+        StringBuilder pipelineMessage = new StringBuilder("Created pipeline: ").append(pipelineId);
+        client.admin().cluster().putPipeline(pipelineRequest, listenOnlyOnFailure(pipelineMessage));
     }
 
-    private ActionListener<CreateIndexResponse> wrapCreatePipeline(ActionListener<AcknowledgedResponse> onResponseListener) {
-        return ActionListener.wrap(notUsed -> { createPipeline(onResponseListener); }, listener::onFailure);
-    }
-
-    private void createIndex(ActionListener<CreateIndexResponse> onResponseListener) throws IOException {
+    private void createIndex() throws IOException {
         XContentBuilder mapping = buildMappingForIndex();
+        StringBuilder message = new StringBuilder("Created index: ").append(content.getIndexName());
         CreateIndexRequest request = new CreateIndexRequest(content.getIndexName()).mapping(MAPPING_TYPE, mapping);
         client.admin()
             .indices()
-            .create(request, ActionListener.delegateResponse(onResponseListener, (objectActionListener, e) -> { listener.onFailure(e); }));
+            .create(request, ActionListener.wrap(createIndexResponse -> {
+                logger.info("Success: "+message.toString());
+            }, listener::onFailure));
     }
 
     private XContentBuilder buildMappingForIndex() throws IOException {
@@ -198,25 +188,26 @@ public class Uploader {
         return builder;
     }
 
-    private ActionListener<AcknowledgedResponse> wrapBuildIndexGeoJSON() {
-        return ActionListener.wrap(input -> {
-            BulkRequestBuilder builder = buildBulkRequestBuilder();
-            builder.execute(ActionListener.wrap(bulkResponse -> {
+    private void indexGeoJSONAsDocument() {
+            BulkRequestBuilder bulkRequestBuilder = buildBulkRequestBuilder();
+            bulkRequestBuilder.execute(ActionListener.wrap(bulkResponse -> {
                 if (!bulkResponse.hasFailures()) {
+                    logger.info(String.format("Successfully indexed %d features", bulkResponse.getItems() ));
                     listener.onResponse(new AcknowledgedResponse(true));
                     return;
                 }
-                List<BulkItemResponse> failedResponse = new ArrayList<>();
-                for (BulkItemResponse response : bulkResponse.getItems()) {
-                    if (response.isFailed()) {
-                        failedResponse.add(response);
-                    }
-                }
-                String errorMessage = failedResponse.stream().map(BulkItemResponse::getFailureMessage).collect(Collectors.joining());
-                listener.onFailure(new IllegalStateException(errorMessage));
+                throw new IllegalStateException(buildBulkRequestFailureMessage(bulkResponse));
             }, e -> { listener.onFailure(e); }));
+    }
 
-        }, listener::onFailure);
+    private String buildBulkRequestFailureMessage(BulkResponse bulkResponse) {
+        List<BulkItemResponse> failedResponse = new ArrayList<>();
+        for (BulkItemResponse response : bulkResponse.getItems()) {
+            if (response.isFailed()) {
+                failedResponse.add(response);
+            }
+        }
+        return failedResponse.stream().map(BulkItemResponse::getFailureMessage).collect(Collectors.joining());
     }
 
     private IndexRequestBuilder createIndexRequestBuilder(Map<String, Object> document) {
