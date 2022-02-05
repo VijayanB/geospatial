@@ -18,12 +18,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkRequestBuilder;
 import org.opensearch.action.index.IndexRequestBuilder;
+import org.opensearch.action.ingest.DeletePipelineRequest;
 import org.opensearch.action.ingest.PutPipelineRequest;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
@@ -53,6 +56,8 @@ public class Uploader {
     public static final String MAPPING_PROPERTIES_KEY = "properties";
     public static final String MAPPING_TYPE = "_doc";
 
+    private final Logger logger = LogManager.getLogger(Uploader.class);
+
     private final Client client;
     private final UploadGeoJSONRequestContent content;
     private final ActionListener<AcknowledgedResponse> listener;
@@ -72,22 +77,66 @@ public class Uploader {
         this.shouldCreateIndex = shouldCreateIndex;
     }
 
+    /**
+     * upload GeoJSON Object from {@link UploadGeoJSONRequestContent} into an index, by
+     * 1. Create index if POST Method
+     * 2. Build Pipeline with {@link FeatureProcessor} to enrich data
+     * 3. Convert all Feature in {@link UploadGeoJSONRequestContent#getData()} to {@link IndexRequestBuilder#setSource(Object...)}
+     * 4. Use {@link BulkRequestBuilder} to add all {@link IndexRequestBuilder} and execute
+     * @throws IOException if any of steps to create
+     */
     public void upload() throws IOException {
-        // Parse content, get features, build Bulk Index Request and execute
-        ActionListener<AcknowledgedResponse> buildIndexGeoJSONObject = wrapBuildIndexGeoJSON();
-        if (!shouldCreateIndex) {
-            createPipeline(buildIndexGeoJSONObject);
+
+        if (shouldCreateIndex) {
+            StringBuilder message = new StringBuilder("Created index: ").append(content.getIndexName());
+            createPipeline(listenOnlyOnFailure(message));
             return;
         }
 
-        // Create Pipeline with a processor of type "geojson-feature"
-        ActionListener<CreateIndexResponse> buildPipeline = wrapBuildPipeline(buildIndexGeoJSONObject);
+        // Parse content, get features, build Bulk Index Request and execute
+        ActionListener<AcknowledgedResponse> buildBulkRequestWithGeoJSON = wrapBuildIndexGeoJSON();
+        try {
+            if (!shouldCreateIndex) {
+                createPipeline(buildBulkRequestWithGeoJSON);
+                return;
+            }
 
-        // create index
-        createIndex(buildPipeline);
+            // Create Pipeline with a processor of type "geojson-feature"
+            ActionListener<CreateIndexResponse> createPipelineActionListener = wrapCreatePipeline(buildBulkRequestWithGeoJSON);
+
+            // create index
+            createIndex(createPipelineActionListener);
+        } finally {
+            deletePipeline();
+        }
+    }
+
+    private void deletePipeline() {
+        DeletePipelineRequest pipelineRequest = new DeletePipelineRequest(pipelineId);
+        StringBuilder message = new StringBuilder("Deleted pipeline: ").append(pipelineId);
+        client.admin().cluster().deletePipeline(pipelineRequest, listenOnlyOnFailure(message));
+    }
+
+    private ActionListener<AcknowledgedResponse> listenOnlyOnFailure(StringBuilder action) {
+        assert action != null;
+        return ActionListener.delegateFailure(listener, (listener1, acknowledgedResponse) -> {
+            logger.debug("Success: "+action.toString());
+        });
     }
 
     private XContentBuilder buildPipelineBodyWithFeatureProcessor() throws IOException {
+        /*
+        {
+              "description" : "Ingest GeoJSON into index",
+              "processors" : [
+                {
+                  "geojson-feature" : {
+                    "field" : "geospatial_field_name"
+                  }
+                }
+              ]
+            }
+         */
         return XContentFactory.jsonBuilder()
             .startObject()
             .startArray(Pipeline.PROCESSORS_KEY)
@@ -107,7 +156,7 @@ public class Uploader {
         client.admin().cluster().putPipeline(pipelineRequest, onResponseListener);
     }
 
-    private ActionListener<CreateIndexResponse> wrapBuildPipeline(ActionListener<AcknowledgedResponse> onResponseListener) {
+    private ActionListener<CreateIndexResponse> wrapCreatePipeline(ActionListener<AcknowledgedResponse> onResponseListener) {
         return ActionListener.wrap(notUsed -> { createPipeline(onResponseListener); }, listener::onFailure);
     }
 
@@ -120,6 +169,15 @@ public class Uploader {
     }
 
     private XContentBuilder buildMappingForIndex() throws IOException {
+        /**
+         {
+            "properties": {
+                "field_name": {
+                    "type": "geospatial_field_type"
+                }
+            }
+         }
+         */
         return XContentFactory.jsonBuilder()
             .startObject()
             .startObject(MAPPING_PROPERTIES_KEY)
