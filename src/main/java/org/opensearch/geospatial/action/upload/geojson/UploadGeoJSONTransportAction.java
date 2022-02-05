@@ -40,7 +40,7 @@ public class UploadGeoJSONTransportAction extends HandledTransportAction<UploadG
     protected void doExecute(Task task, UploadGeoJSONRequest request, ActionListener<AcknowledgedResponse> actionListener) {
         Map<String, Object> contentAsMap = GeospatialParser.convertToMap(request.getContent());
         UploadGeoJSONRequestContent content = UploadGeoJSONRequestContent.create(contentAsMap);
-        Uploader uploader = new Uploader(client, content, actionListener);
+        Uploader uploader = new Uploader(client, content, true, actionListener);
         try {
             uploader.upload();
         } catch (Exception e) {
