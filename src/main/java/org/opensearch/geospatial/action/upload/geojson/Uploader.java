@@ -21,14 +21,13 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.StepListener;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
-import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkRequestBuilder;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequestBuilder;
 import org.opensearch.action.ingest.DeletePipelineRequest;
-import org.opensearch.action.ingest.GetPipelineRequest;
 import org.opensearch.action.ingest.PutPipelineRequest;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
@@ -90,23 +89,37 @@ public class Uploader {
      */
     public void upload() throws IOException {
 
+        StepListener<Boolean> step1 = new StepListener<>();
         if (shouldCreateIndex) {
-            createIndex();
+            createIndex(step1);
         }
-        indexGeoJSONAsDocument();
+        StepListener<Boolean> step2 = new StepListener<>();
+        step1.whenComplete(aBoolean -> {
+            createPipeline(step2);
+        }, listener::onFailure);
+
+        try{
+            step2.whenComplete(aBoolean -> {
+                indexGeoJSONAsDocument();
+            }, listener::onFailure);
+
+        } finally { // pipeline is created by uploader in the previous step, so delete it at all cost.
+            deletePipeline();
+        }
     }
 
     private void deletePipeline() {
         DeletePipelineRequest pipelineRequest = new DeletePipelineRequest(pipelineId);
         StringBuilder message = new StringBuilder("Deleted pipeline: ").append(pipelineId);
-        client.admin().cluster().deletePipeline(pipelineRequest, listenOnlyOnFailure(message));
+        //client.admin().cluster().deletePipeline(pipelineRequest, listenOnlyOnFailure(message, createPipeline));
     }
 
-    private ActionListener<AcknowledgedResponse> listenOnlyOnFailure(StringBuilder action) {
+    private ActionListener<AcknowledgedResponse> listenOnlyOnFailure(StringBuilder action, StepListener<Boolean> stepListener) {
         assert action != null;
-        return ActionListener.delegateFailure(listener, (listener1, acknowledgedResponse) -> {
-            logger.debug("Success: "+action.toString());
-        });
+        return ActionListener.wrap(acknowledgedResponse -> {
+            logger.info("Success: "+action.toString());
+            stepListener.onResponse(true);
+        }, stepListener::onFailure);
     }
 
     private XContentBuilder buildPipelineBodyWithFeatureProcessor() throws IOException {
@@ -134,17 +147,19 @@ public class Uploader {
             .endObject();
     }
 
-    private void createPipeline() throws IOException {
+    private void createPipeline(StepListener<Boolean> stepListener) throws IOException {
         XContentBuilder pipelineRequestXContent = buildPipelineBodyWithFeatureProcessor();
         BytesReference pipelineRequestBodyBytes = BytesReference.bytes(pipelineRequestXContent);
         PutPipelineRequest pipelineRequest = new PutPipelineRequest(pipelineId, pipelineRequestBodyBytes, XContentType.JSON);
         StringBuilder pipelineMessage = new StringBuilder("Created pipeline: ").append(pipelineId);
-        client.admin().cluster().putPipeline(pipelineRequest, ActionListener.wrap(createIndexResponse -> {
-            logger.info("Success: "+pipelineMessage.toString());
-        }, listener::onFailure));
+        client.admin().cluster().putPipeline(pipelineRequest, listenOnlyOnFailure(pipelineMessage, stepListener));
     }
 
-    private void createIndex() throws IOException {
+    private void createIndex(StepListener<Boolean> createIndex) throws IOException {
+        if(!shouldCreateIndex){
+            createIndex.onResponse(true);
+            return;
+        }
         XContentBuilder mapping = buildMappingForIndex();
         StringBuilder message = new StringBuilder("Created index: ").append(content.getIndexName());
         CreateIndexRequest request = new CreateIndexRequest(content.getIndexName()).mapping(MAPPING_TYPE, mapping);
@@ -152,7 +167,8 @@ public class Uploader {
             .indices()
             .create(request, ActionListener.wrap(createIndexResponse -> {
                 logger.info("Success: "+message.toString());
-            }, listener::onFailure));
+                createIndex.onResponse(true);
+            }, createIndex::onFailure));
     }
 
     private XContentBuilder buildMappingForIndex() throws IOException {
@@ -185,12 +201,11 @@ public class Uploader {
         return builder;
     }
 
-    private void indexGeoJSONAsDocument() throws IOException {
-        createPipeline();
+    private void indexGeoJSONAsDocument() {
         BulkRequestBuilder bulkRequestBuilder = buildBulkRequestBuilder();
         bulkRequestBuilder.execute(ActionListener.wrap(bulkResponse -> {
             if (!bulkResponse.hasFailures()) {
-                logger.info(String.format("Successfully indexed %d features", bulkResponse.getItems().length));
+                logger.info(String.format("Successfully indexed %d features", bulkResponse.getItems().length ));
                 listener.onResponse(new AcknowledgedResponse(true));
                 return;
             }
