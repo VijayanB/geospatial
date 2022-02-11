@@ -121,11 +121,12 @@ public abstract class GeospatialRestTestCase extends OpenSearchRestTestCase {
     }
 
     // TODO This method is copied from unit test. Refactor to common class to share across tests
-    protected JSONObject buildUploadGeoJSONRequestContent(int totalGeoJSONObject, String index) {
+    protected JSONObject buildUploadGeoJSONRequestContent(int totalGeoJSONObject, String index, String geoFieldName) {
         JSONObject contents = new JSONObject();
         String indexName = Strings.hasText(index) ? index : randomLowerCaseString();
+        String fieldName = Strings.hasText(geoFieldName) ? geoFieldName : randomLowerCaseString();
         contents.put(UploadGeoJSONRequestContent.FIELD_INDEX.getPreferredName(), indexName);
-        contents.put(UploadGeoJSONRequestContent.FIELD_GEOSPATIAL.getPreferredName(), randomString());
+        contents.put(UploadGeoJSONRequestContent.FIELD_GEOSPATIAL.getPreferredName(), fieldName);
         contents.put(UploadGeoJSONRequestContent.FIELD_GEOSPATIAL_TYPE.getPreferredName(), "geo_shape");
         JSONArray values = new JSONArray();
         IntStream.range(0, totalGeoJSONObject).forEach(unUsed -> values.put(randomGeoJSONFeature(buildProperties(Collections.emptyMap()))));

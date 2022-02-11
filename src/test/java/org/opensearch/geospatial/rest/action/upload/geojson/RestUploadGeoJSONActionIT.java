@@ -36,7 +36,7 @@ public class RestUploadGeoJSONActionIT extends GeospatialRestTestCase {
 
         String path = String.join(GeospatialPlugin.URL_DELIMITER, GeospatialPlugin.getPluginURLPrefix(), ACTION_OBJECT, ACTION_UPLOAD);
         Request request = new Request("POST", path);
-        final JSONObject requestBody = buildUploadGeoJSONRequestContent(NUMBER_OF_FEATURES_TO_ADD, null);
+        final JSONObject requestBody = buildUploadGeoJSONRequestContent(NUMBER_OF_FEATURES_TO_ADD, null, null);
         final String index = requestBody.getString(UploadGeoJSONRequestContent.FIELD_INDEX.getPreferredName());
         assertIndexNotExists(index);
         request.setJsonEntity(requestBody.toString());
@@ -48,13 +48,14 @@ public class RestUploadGeoJSONActionIT extends GeospatialRestTestCase {
 
     public void testGeoJSONUploadFailIndexExists() throws IOException {
 
-        Map<String, String> geoFields = new HashMap<>();
-        geoFields.put("location", "geo_shape");
         String index = randomLowerCaseString();
+        String geoFieldName = randomLowerCaseString();
+        Map<String, String> geoFields = new HashMap<>();
+        geoFields.put(geoFieldName, "geo_shape");
         createIndex(index, Settings.EMPTY, geoFields);
         String path = String.join(GeospatialPlugin.URL_DELIMITER, GeospatialPlugin.getPluginURLPrefix(), ACTION_OBJECT, ACTION_UPLOAD);
         Request request = new Request("POST", path);
-        final JSONObject requestBody = buildUploadGeoJSONRequestContent(NUMBER_OF_FEATURES_TO_ADD, index);
+        final JSONObject requestBody = buildUploadGeoJSONRequestContent(NUMBER_OF_FEATURES_TO_ADD, index, geoFieldName);
         request.setJsonEntity(requestBody.toString());
         final ResponseException responseException = assertThrows(ResponseException.class, () -> client().performRequest(request));
         assertTrue("Not an expected exception", responseException.getMessage().contains("resource_already_exists_exception"));
@@ -64,7 +65,7 @@ public class RestUploadGeoJSONActionIT extends GeospatialRestTestCase {
 
         String path = String.join(GeospatialPlugin.URL_DELIMITER, GeospatialPlugin.getPluginURLPrefix(), ACTION_OBJECT, ACTION_UPLOAD);
         Request request = new Request("PUT", path);
-        final JSONObject requestBody = buildUploadGeoJSONRequestContent(NUMBER_OF_FEATURES_TO_ADD, null);
+        final JSONObject requestBody = buildUploadGeoJSONRequestContent(NUMBER_OF_FEATURES_TO_ADD, null, null);
         final String index = requestBody.getString(UploadGeoJSONRequestContent.FIELD_INDEX.getPreferredName());
         assertIndexNotExists(index);
         request.setJsonEntity(requestBody.toString());
@@ -76,20 +77,21 @@ public class RestUploadGeoJSONActionIT extends GeospatialRestTestCase {
 
     public void testGeoJSONPutMethodUploadIndexExists() throws IOException {
 
-        Map<String, String> geoFields = new HashMap<>();
-        geoFields.put("location", "geo_shape");
         String index = randomLowerCaseString();
-        createIndex(index, Settings.EMPTY, geoFields);
+        String geoFieldName = randomLowerCaseString();
         String path = String.join(GeospatialPlugin.URL_DELIMITER, GeospatialPlugin.getPluginURLPrefix(), ACTION_OBJECT, ACTION_UPLOAD);
         Request request = new Request("PUT", path);
-        final JSONObject requestBody = buildUploadGeoJSONRequestContent(NUMBER_OF_FEATURES_TO_ADD, index);
-        request.setJsonEntity(requestBody.toString());
-        assertIndexExists(index);
-        int indexDocCountBeforeUpload = getIndexDocumentCount(index);
+        final JSONObject requestBody = buildUploadGeoJSONRequestContent(NUMBER_OF_FEATURES_TO_ADD, index, geoFieldName);
         request.setJsonEntity(requestBody.toString());
         Response response = client().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-        int expectedDocCountAfterUpload = indexDocCountBeforeUpload + NUMBER_OF_FEATURES_TO_ADD;
+        int indexDocumentCount = getIndexDocumentCount(index);
+        // upload again
+        final JSONObject requestBodyUpload = buildUploadGeoJSONRequestContent(NUMBER_OF_FEATURES_TO_ADD, index, geoFieldName);
+        request.setJsonEntity(requestBodyUpload.toString());
+        Response uploadGeoJSONSecondTimeResponse = client().performRequest(request);
+        assertEquals(RestStatus.OK, RestStatus.fromCode(uploadGeoJSONSecondTimeResponse.getStatusLine().getStatusCode()));
+        int expectedDocCountAfterUpload = indexDocumentCount + NUMBER_OF_FEATURES_TO_ADD;
         assertEquals("failed to index documents", expectedDocCountAfterUpload, getIndexDocumentCount(index));
     }
 }
