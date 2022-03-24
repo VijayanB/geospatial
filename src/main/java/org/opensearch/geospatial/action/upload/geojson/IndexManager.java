@@ -24,7 +24,6 @@ import org.opensearch.common.xcontent.XContentFactory;
 public class IndexManager {
     public static final String FIELD_TYPE_KEY = "type";
     public static final String MAPPING_PROPERTIES_KEY = "properties";
-    public static final String DOCUMENT_TYPE = "_doc";
     private static final Logger LOGGER = LogManager.getLogger(IndexManager.class);
     private final IndicesAdminClient client;
 
@@ -56,7 +55,7 @@ public class IndexManager {
     }
 
     private void createIndex(String indexName, XContentBuilder mapping, StepListener<Void> createIndexStep) {
-        CreateIndexRequest request = new CreateIndexRequest(indexName).mapping(DOCUMENT_TYPE, mapping);
+        CreateIndexRequest request = new CreateIndexRequest(indexName).source(mapping);
         client.create(request, ActionListener.wrap(createIndexResponse -> {
             StringBuilder message = new StringBuilder("Created index: ").append(indexName);
             LOGGER.info(message.toString());
