@@ -96,7 +96,11 @@ public class Uploader {
 
         // index features as document after creating pipeline
         createPipelineStep.whenComplete(
-            pipeline -> { indexContentAsDocument(pipeline, content, indexFeatureStep); },
+            pipeline -> {
+                // indexContentAsDocument(pipeline, content, indexFeatureStep);
+                contentBuilder.prepareBulk(content, pipeline, indexFeatureStep);
+
+            },
             createPipelineFailedException -> { flowListener.onFailure(createPipelineFailedException); }
         );
 
