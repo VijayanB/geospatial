@@ -29,20 +29,21 @@ public class UploadGeoJSONResponse extends ActionResponse implements ToXContentO
     private static final String TOOK_IN_MILLI_SECOND = "took_in_ms";
     private static final String TOTAL = "total";
     private static final int NO_FAILURE = 0;
-    private final BulkResponse response;
+    private final BulkResponse bulkResponse;
 
-    public UploadGeoJSONResponse(BulkResponse response) {
-        this.response = response;
+    public UploadGeoJSONResponse(BulkResponse bulkResponse) {
+        super();
+        this.bulkResponse = bulkResponse;
     }
 
     public UploadGeoJSONResponse(StreamInput in) throws IOException {
         super(in);
-        this.response = new BulkResponse(in);
+        this.bulkResponse = new BulkResponse(in);
     }
 
     @Override
     public void writeTo(StreamOutput streamOutput) throws IOException {
-        this.response.writeTo(streamOutput);
+        this.bulkResponse.writeTo(streamOutput);
     }
 
     @Override
@@ -76,10 +77,10 @@ public class UploadGeoJSONResponse extends ActionResponse implements ToXContentO
           }
          */
         builder.startObject();
-        builder.field(TOOK_IN_MILLI_SECOND, response.getTook().getMillis());
-        builder.field(ERRORS, response.hasFailures());
-        builder.field(TOTAL, response.getItems().length);
-        if (!response.hasFailures()) {
+        builder.field(TOOK_IN_MILLI_SECOND, bulkResponse.getTook().getMillis());
+        builder.field(ERRORS, bulkResponse.hasFailures());
+        builder.field(TOTAL, bulkResponse.getItems().length);
+        if (!bulkResponse.hasFailures()) {
             buildSuccessXContent(builder);
             return builder.endObject();
         }
@@ -88,7 +89,7 @@ public class UploadGeoJSONResponse extends ActionResponse implements ToXContentO
     }
 
     private void buildSuccessXContent(XContentBuilder builder) throws IOException {
-        buildResultXContent(builder, response.getItems().length, NO_FAILURE);
+        buildResultXContent(builder, bulkResponse.getItems().length, NO_FAILURE);
     }
 
     private void buildResultXContent(XContentBuilder builder, int successCount, int failureCount) throws IOException {
@@ -97,10 +98,10 @@ public class UploadGeoJSONResponse extends ActionResponse implements ToXContentO
     }
 
     private void buildFailureXContent(XContentBuilder builder) throws IOException {
-        final Map<String, String> failedResponses = Arrays.stream(response.getItems())
+        final Map<String, String> failedResponses = Arrays.stream(bulkResponse.getItems())
             .filter(BulkItemResponse::isFailed)
             .collect(Collectors.toMap(BulkItemResponse::getId, BulkItemResponse::getFailureMessage));
-        int successCount = response.getItems().length - failedResponses.size();
+        int successCount = bulkResponse.getItems().length - failedResponses.size();
         buildResultXContent(builder, successCount, failedResponses.size());
         builder.startArray(MESSAGES);
         for (Map.Entry<String, String> entry : failedResponses.entrySet()) {
