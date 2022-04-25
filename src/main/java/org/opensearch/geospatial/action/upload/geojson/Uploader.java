@@ -97,27 +97,29 @@ public class Uploader {
         // delete pipeline
         indexFeatureStep.whenComplete(notUsed -> {
             String pipeline = createPipelineStep.result();
-            pipelineManager.delete(pipeline, deletePipelineStep, () -> null);
+            //pipelineManager.delete(pipeline, deletePipelineStep, () -> null);
+            flowListener.onResponse(new UploadGeoJSONResponse(indexFeatureStep.result()));
         }, uploadFailed -> {
             String pipeline = createPipelineStep.result();
-            pipelineManager.delete(pipeline, deletePipelineStep, () -> uploadFailed);
+            //pipelineManager.delete(pipeline, deletePipelineStep, () -> uploadFailed);
+            flowListener.onResponse(new UploadGeoJSONResponse(indexFeatureStep.result()));
         });
 
         // set response or failure depending on previous steps status
-        deletePipelineStep.whenComplete(uploadFailedException -> {
-            if (uploadFailedException != null) {
-                throw uploadFailedException;
-            }
-            flowListener.onResponse(new UploadGeoJSONResponse(indexFeatureStep.result()));
-        }, deletePipelineFailed -> {
-            try {
-                BulkResponse response = indexFeatureStep.result();
-                // TODO Propogate deletePipelineFailed exception to response as low severity error
-                flowListener.onResponse(new UploadGeoJSONResponse(response));
-            } catch (IllegalStateException stepFailed) {
-                flowListener.onFailure(deletePipelineFailed);
-            }
-        });
+//        deletePipelineStep.whenComplete(uploadFailedException -> {
+//            if (uploadFailedException != null) {
+//                throw uploadFailedException;
+//            }
+//            flowListener.onResponse(new UploadGeoJSONResponse(indexFeatureStep.result()));
+//        }, deletePipelineFailed -> {
+//            try {
+//                BulkResponse response = indexFeatureStep.result();
+//                // TODO Propogate deletePipelineFailed exception to response as low severity error
+//                flowListener.onResponse(new UploadGeoJSONResponse(response));
+//            } catch (IllegalStateException stepFailed) {
+//                flowListener.onFailure(deletePipelineFailed);
+//            }
+//        });
 
     }
 
