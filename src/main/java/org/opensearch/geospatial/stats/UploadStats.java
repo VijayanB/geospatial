@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
+import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.metrics.CounterMetric;
@@ -50,6 +51,12 @@ public final class UploadStats implements ToXContent, Writeable {
     UploadStats() {
         metrics = new HashSet<>();
         totalAPICount = new CounterMetric();
+    }
+
+    UploadStats(StreamInput input) throws IOException {
+        totalAPICount = new CounterMetric();
+        totalAPICount.inc(input.readLong());
+        metrics = input.readSet(UploadMetric.UploadMetricBuilder::fromStreamInput);
     }
 
     /**

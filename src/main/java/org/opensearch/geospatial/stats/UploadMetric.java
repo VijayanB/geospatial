@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Objects;
 
 import org.opensearch.common.Strings;
+import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.xcontent.ToXContentFragment;
@@ -158,6 +159,22 @@ public final class UploadMetric implements ToXContentFragment, Writeable {
          */
         public UploadMetric build() {
             return new UploadMetric(this);
+        }
+
+
+        /**
+         * Deserialize {@link UploadMetric} from given {@link StreamInput}
+         * @param input StreamInput instance
+         * @return UploadMetric returns {@link UploadMetric} from {@link StreamInput}
+         * @throws IOException
+         */
+        public static UploadMetric fromStreamInput(StreamInput input) throws IOException {
+            UploadMetricBuilder builder = new UploadMetricBuilder(input.readString()).uploadCount(input.readVLong())
+                .successCount(input.readVLong())
+                .failedCount(input.readVLong())
+                .duration(input.readVLong());
+
+            return builder.build();
         }
 
     }
