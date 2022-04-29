@@ -10,13 +10,15 @@ import java.util.Locale;
 import java.util.Objects;
 
 import org.opensearch.common.Strings;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.xcontent.ToXContentFragment;
 import org.opensearch.common.xcontent.XContentBuilder;
 
 /**
  * UploadMetric stores metric for an upload API
  */
-public final class UploadMetric implements ToXContentFragment {
+public final class UploadMetric implements ToXContentFragment, Writeable {
 
     public enum FIELDS {
         ID,
@@ -92,6 +94,15 @@ public final class UploadMetric implements ToXContentFragment {
     @Override
     public int hashCode() {
         return Objects.hash(metricID);
+    }
+
+    @Override
+    public void writeTo(StreamOutput output) throws IOException {
+        output.writeString(metricID);
+        output.writeVLong(uploadCount);
+        output.writeVLong(successCount);
+        output.writeVLong(failedCount);
+        output.writeVLong(duration);
     }
 
     @Override

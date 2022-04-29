@@ -12,6 +12,8 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.metrics.CounterMetric;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -19,7 +21,7 @@ import org.opensearch.common.xcontent.XContentBuilder;
 /**
  * Contains the total upload stats
  */
-public final class UploadStats implements ToXContent {
+public final class UploadStats implements ToXContent, Writeable {
 
     public enum FIELDS {
 
@@ -86,6 +88,12 @@ public final class UploadStats implements ToXContent {
      */
     public List<UploadMetric> getMetrics() {
         return List.copyOf(metrics);
+    }
+
+    @Override
+    public void writeTo(StreamOutput output) throws IOException {
+        output.writeVLong(getTotalAPICount());
+        output.writeCollection(getMetrics());
     }
 
     @Override
