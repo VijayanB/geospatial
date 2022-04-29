@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.geospatial.action.upload;
+package org.opensearch.geospatial.stats;
 
 import java.io.IOException;
 import java.util.Locale;
