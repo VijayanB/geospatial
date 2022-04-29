@@ -1,12 +1,6 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.geospatial.stats;
@@ -26,13 +20,15 @@ import org.opensearch.transport.TransportService;
 public class StatsTransportAction extends TransportNodesAction<StatsRequest, StatsResponse, StatsNodeRequest, StatsNodeResponse> {
 
     private final TransportService transportService;
+    private final UploadStats stats;
 
     @Inject
     public StatsTransportAction(
         TransportService transportService,
         ClusterService clusterService,
         ThreadPool threadPool,
-        ActionFilters actionFilters
+        ActionFilters actionFilters,
+        UploadStats stats
     ) {
         super(
             StatsAction.NAME,
@@ -46,6 +42,7 @@ public class StatsTransportAction extends TransportNodesAction<StatsRequest, Sta
             StatsNodeResponse.class
         );
         this.transportService = transportService;
+        this.stats = stats;
     }
 
     @Override
@@ -59,16 +56,16 @@ public class StatsTransportAction extends TransportNodesAction<StatsRequest, Sta
 
     @Override
     protected StatsNodeRequest newNodeRequest(StatsRequest nodesRequest) {
-        return null;
+        return new StatsNodeRequest(nodesRequest);
     }
 
     @Override
     protected StatsNodeResponse newNodeResponse(StreamInput streamInput) throws IOException {
-        return null;
+        return new StatsNodeResponse(streamInput);
     }
 
     @Override
     protected StatsNodeResponse nodeOperation(StatsNodeRequest nodeRequest) {
-        return null;
+        return new StatsNodeResponse(transportService.getLocalNode(), stats);
     }
 }

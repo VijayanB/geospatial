@@ -1,12 +1,6 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.geospatial.stats;
@@ -15,6 +9,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.nodes.BaseNodesResponse;
@@ -48,14 +45,36 @@ public class StatsResponse extends BaseNodesResponse<StatsNodeResponse> implemen
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
+        final Long reduce = getNodesMap().entrySet()
+            .stream()
+            .map(entry -> entry.getValue().getStats().getTotalAPICount())
+            .reduce(0L, Long::sum);
+        final List<UploadMetric> uploadMetrics = getNodesMap().entrySet()
+            .stream()
+            .map(entry -> entry.getValue().getStats().getMetrics())
+            .flatMap(List::stream).collect(Collectors.toList());
+        builder.startObject("total");
+
+        builder.field("count", reduce);
+        builder.field("upload", summingMetricField(uploadMetrics, UploadMetric::getUploadCount));
+        builder.field("success", summingMetricField(uploadMetrics, UploadMetric::getSuccessCount));
+        builder.field("failed", summingMetricField(uploadMetrics, UploadMetric::getFailedCount));
+        builder.field("duration", summingMetricField(uploadMetrics, UploadMetric::getDuration));
+
+        builder.endObject();
         builder.startObject("nodes");
         for (Map.Entry<String, StatsNodeResponse> e : getNodesMap().entrySet()) {
             builder.startObject(e.getKey());
+            e.getValue().toXContent(builder, params);
             builder.endObject();
         }
         builder.endObject();
         builder.endObject();
         return builder;
+    }
+
+    private Long summingMetricField(List<UploadMetric> metrics, Function<UploadMetric, Long> mapper) {
+        return metrics.stream().collect(Collectors.summingLong(mapper::apply));
     }
 
     @Override
