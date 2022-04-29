@@ -21,21 +21,37 @@ import org.opensearch.common.xcontent.ToXContentFragment;
 import org.opensearch.common.xcontent.XContentBuilder;
 
 public class StatsNodeResponse extends BaseNodeResponse implements ToXContentFragment {
-    protected StatsNodeResponse(StreamInput in) throws IOException {
-        super(in);
+
+    private final UploadStats stats;
+
+    public StatsNodeResponse(DiscoveryNode node, UploadStats stats) {
+        super(node);
+        this.stats = stats;
     }
 
-    protected StatsNodeResponse(DiscoveryNode node) {
-        super(node);
+    public StatsNodeResponse(StreamInput in) throws IOException {
+        super(in);
+        this.stats = in.readBoolean() ? new UploadStats(in) : UploadStats.getInstance();
+    }
+
+    public UploadStats getStats() {
+        return stats;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
+        if (stats == null) {
+            out.writeBoolean(Boolean.FALSE);
+            return;
+        }
+        out.writeBoolean(Boolean.TRUE);
+        stats.writeTo(out);
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+        this.stats.toXContent(builder, params);
         return builder;
     }
 }

@@ -20,7 +20,6 @@ import org.opensearch.common.xcontent.XContentBuilder;
  * UploadMetric stores metric for an upload API
  */
 public final class UploadMetric implements ToXContentFragment, Writeable {
-
     public enum FIELDS {
         ID,
         COUNT,
@@ -160,7 +159,6 @@ public final class UploadMetric implements ToXContentFragment, Writeable {
         public UploadMetric build() {
             return new UploadMetric(this);
         }
-
 
         /**
          * Deserialize {@link UploadMetric} from given {@link StreamInput}

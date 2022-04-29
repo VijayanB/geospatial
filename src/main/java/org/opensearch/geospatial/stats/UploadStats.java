@@ -44,7 +44,7 @@ public final class UploadStats implements ToXContent, Writeable {
     /**
      * @return Singleton instance of UploadStats
      */
-    public static UploadStats getInstance() {
+    public synchronized static UploadStats getInstance() {
         return instance;
     }
 
