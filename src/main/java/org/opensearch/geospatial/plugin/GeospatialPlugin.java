@@ -5,8 +5,6 @@
 
 package org.opensearch.geospatial.plugin;
 
-import static java.util.Collections.singletonList;
-
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -24,6 +22,9 @@ import org.opensearch.geospatial.action.upload.geojson.UploadGeoJSONAction;
 import org.opensearch.geospatial.action.upload.geojson.UploadGeoJSONTransportAction;
 import org.opensearch.geospatial.processor.FeatureProcessor;
 import org.opensearch.geospatial.rest.action.upload.geojson.RestUploadGeoJSONAction;
+import org.opensearch.geospatial.stats.RestStatsAction;
+import org.opensearch.geospatial.stats.StatsAction;
+import org.opensearch.geospatial.stats.StatsTransportAction;
 import org.opensearch.ingest.Processor;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.IngestPlugin;
@@ -55,11 +56,15 @@ public class GeospatialPlugin extends Plugin implements IngestPlugin, ActionPlug
         Supplier<DiscoveryNodes> nodesInCluster
     ) {
         RestUploadGeoJSONAction uploadGeoJSONAction = new RestUploadGeoJSONAction();
-        return singletonList(uploadGeoJSONAction);
+        RestStatsAction statsAction = new RestStatsAction();
+        return List.of(statsAction, uploadGeoJSONAction);
     }
 
     @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
-        return singletonList(new ActionHandler<>(UploadGeoJSONAction.INSTANCE, UploadGeoJSONTransportAction.class));
+        return List.of(
+            new ActionHandler<>(UploadGeoJSONAction.INSTANCE, UploadGeoJSONTransportAction.class),
+            new ActionHandler<>(StatsAction.INSTANCE, StatsTransportAction.class)
+        );
     }
 }
