@@ -5,18 +5,24 @@
 
 package org.opensearch.geospatial.stats.upload;
 
+import static java.util.Collections.unmodifiableSet;
+
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.metrics.CounterMetric;
 
 /**
  * Contains the total upload stats
  */
-public final class UploadStats {
+public final class UploadStats implements Writeable {
 
     public enum FIELDS {
 
@@ -45,6 +51,12 @@ public final class UploadStats {
     UploadStats() {
         metrics = new HashSet<>();
         totalAPICount = new CounterMetric();
+    }
+
+    UploadStats(StreamInput input) throws IOException {
+        totalAPICount = new CounterMetric();
+        totalAPICount.inc(input.readVLong());
+        metrics = unmodifiableSet(input.readSet(UploadMetric.UploadMetricBuilder::fromStreamInput));
     }
 
     /**
@@ -83,6 +95,12 @@ public final class UploadStats {
      */
     public List<UploadMetric> getMetrics() {
         return List.copyOf(metrics);
+    }
+
+    @Override
+    public void writeTo(StreamOutput output) throws IOException {
+        output.writeVLong(getTotalAPICount());
+        output.writeCollection(getMetrics());
     }
 
 }
