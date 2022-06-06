@@ -27,7 +27,7 @@ import org.opensearch.index.query.VectorGeoShapeQueryProcessor;
 
 public class ShapeFieldMapper extends AbstractShapeGeometryFieldMapper<Geometry, Geometry> {
 
-    private static final String CONTENT_TYPE = "shape";
+    public static final String CONTENT_TYPE = "shape";
     public static final FieldType FIELD_TYPE = new FieldType();
     static {
         FIELD_TYPE.setDimensions(7, 4, Integer.BYTES);
