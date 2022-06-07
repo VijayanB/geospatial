@@ -15,7 +15,7 @@ import org.opensearch.index.query.QueryShardContext;
 public class ShapeQueryProcessor {
 
     public Query shapeQuery(Geometry shape, String fieldName, ShapeRelation relation, QueryShardContext context) {
-        //TODO: Return only docs that matches relation
+        // TODO: Return only docs that matches relation
         return new MatchAllDocsQuery();
     }
 }
